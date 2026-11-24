@@ -1,0 +1,7 @@
+{
+  "nav": "Usage",
+  "meta": {
+    "title": "Provider usage",
+    "description": "Lists each provider's usage meters and the times they recover, inside Settings. Read-only: values are shown exactly as the dashboard's JSON API reports them."
+  }
+}
