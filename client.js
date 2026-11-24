@@ -108,6 +108,7 @@ window.__ModuleLoader__.load({
       '.up_fill.idle{background:var(--dsw-alias-state-idle-primary);opacity:.5}',
       '.up_pct{flex:0 0 52px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary)}',
       '.up_detail{display:flex;gap:10px;margin:-4px 0 0 106px;font-size:11px;line-height:15px;color:var(--dsw-alias-label-tertiary)}',
+      '.up_quota{margin:2px 0 0 106px;font-size:11px;line-height:15px;color:var(--dsw-alias-label-tertiary)}',
       '.up_muted{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
       '.up_error{display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:17px;color:var(--dsw-alias-state-error-primary)}',
       '.up_error code{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);word-break:break-all}',
@@ -158,6 +159,7 @@ window.__ModuleLoader__.load({
       const label = text(meter?.label) ?? tr('noMeters')
       const reset = text(meter?.reset)
       const detail = text(meter?.detail)
+      const quota = text(meter?.quota)
       const value = percent === undefined ? 0 : Math.max(0, Math.min(100, percent))
       return h(React.Fragment, null,
         h('div', { className: 'up_row' },
@@ -170,7 +172,8 @@ window.__ModuleLoader__.load({
           h('span', { className: 'up_pct' }, percent === undefined ? '—' : `${percent}%`)),
         reset === undefined && detail === undefined ? null : h('div', { className: 'up_detail' },
           reset === undefined ? null : h('span', null, tr('reset', { time: reset })),
-          detail === undefined ? null : h('span', null, detail)))
+          detail === undefined ? null : h('span', null, detail)),
+        quota === undefined ? null : h('div', { className: 'up_quota' }, quota))
     }
 
     function Provider({ tr, title, provider }) {
