@@ -36,6 +36,7 @@ window.__ModuleLoader__.load({
       noMeters: '内訳なし',
       statusOk: '取得済み',
       statusOther: '取得できず',
+      excluded: '表示外: {list}',
     }
     const en = {
       nav: 'Usage',
@@ -53,6 +54,7 @@ window.__ModuleLoader__.load({
       noMeters: 'no breakdown',
       statusOk: 'read',
       statusOther: 'not read',
+      excluded: 'Hidden: {list}',
     }
     const zh = {
       ...en,
@@ -71,6 +73,7 @@ window.__ModuleLoader__.load({
       noMeters: '无明细',
       statusOk: '已获取',
       statusOther: '未获取',
+      excluded: '不显示：{list}',
     }
 
     const translator = source => (key, params) => {
@@ -89,7 +92,7 @@ window.__ModuleLoader__.load({
       '.up_btn:disabled{opacity:.45;cursor:default}',
       '.up_btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
       '.up_card{border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:12px 14px 13px}',
-      '.up_chead{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}',
+      '.up_chead{display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap}',
       '.up_name{font-size:13px;font-weight:600;line-height:18px;color:var(--dsw-alias-label-primary)}',
       '.up_badge{flex:none;padding:1px 7px;border-radius:9px;font-size:11px;line-height:16px;',
       'background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary)}',
@@ -269,7 +272,11 @@ window.__ModuleLoader__.load({
         rows.length === 0
           ? state.status === 'ready' && data !== undefined ? h('p', { className: 'up_muted' }, tr('empty')) : null
           : rows.map(row => h(Provider, { key: row.key, tr, title: row.title, provider: row.provider })),
-        data === undefined ? null : h(Cooldowns, { tr, list: data.cooldowns }))
+        data === undefined ? null : h(Cooldowns, { tr, list: data.cooldowns }),
+        data !== undefined && Array.isArray(data.excluded) && data.excluded.length > 0
+          ? h('p', { className: 'up_muted', style: { margin: '0 2px' } },
+            tr('excluded', { list: data.excluded.join(', ') }))
+          : null)
     }
 
     return {
