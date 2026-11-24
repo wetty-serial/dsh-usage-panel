@@ -136,7 +136,7 @@ window.__ModuleLoader__.load({
       if (raw === undefined) return undefined
       const at = new Date(raw)
       if (Number.isNaN(at.getTime())) return raw
-      return at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+      return at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
     }
     const humanize = (key) => key.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 
