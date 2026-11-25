@@ -14,10 +14,8 @@ import z from '@deepseek-ai/schemastery'
 export const name = 'usage-panel'
 
 export const Config = z.object({
-  /** Dashboard JSON endpoint. The default is this PC's own copy of provider-usage-dashboard. */
+  /** Dashboard JSON endpoint: provider-usage-dashboard on the same host (nucbox). */
   url: z.string().default('http://127.0.0.1:18080/api/usage'),
-  /** Second candidate, tried when `url` does not answer (Tailscale address of the dashboard host). */
-  fallbackUrl: z.string().default('http://100.118.156.76:18080/api/usage'),
   /** Upstream read timeout; the dashboard itself refreshes at most once a minute. */
   timeoutMs: z.number().min(500).default(8000),
   /** How long one read is reused, so several open pages do not each hit the dashboard. */
@@ -30,8 +28,8 @@ const message = (error) => {
 }
 
 export function apply(ctx, config) {
-  const targets = () => [config.url, config.fallbackUrl]
-    .filter((value, index, all) => typeof value === 'string' && value.trim() !== '' && all.indexOf(value) === index)
+  const targets = () => [config.url]
+    .filter(value => typeof value === 'string' && value.trim() !== '')
     .map(value => value.trim())
 
   /** One read of one endpoint; throws on anything that is not a usage document. */

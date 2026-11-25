@@ -6,9 +6,8 @@
 
 ## 何を読むか
 
-既定の取得先はこの PC 自身の `http://127.0.0.1:18080/api/usage`、次に Tailscale 上の
-`http://100.118.156.76:18080/api/usage`（母艦 nucbox の `provider-usage-dashboard`）。
-前者が答えた時点でそちらを使う。応答は JSON で、少なくとも `providers` オブジェクトを持つこと。
+取得先は同じホスト（nucbox）の `provider-usage-dashboard`、`http://127.0.0.1:18080/api/usage`。
+応答は JSON で、少なくとも `providers` オブジェクトを持つこと。
 
 ## 提供元が増減しても壊れない
 
@@ -29,8 +28,7 @@
 
 | フィールド | 既定 | 意味 |
 |---|---|---|
-| `url` | `http://127.0.0.1:18080/api/usage` | 第一の取得先 |
-| `fallbackUrl` | `http://100.118.156.76:18080/api/usage` | 第一が落ちたときの取得先 |
+| `url` | `http://127.0.0.1:18080/api/usage` | 取得先 |
 | `timeoutMs` | `8000` | 上流の読み取りタイムアウト |
 | `cacheSeconds` | `30` | 同じ結果を使い回す秒数（開いた複数ページで連打しない） |
 
