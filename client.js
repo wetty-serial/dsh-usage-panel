@@ -20,7 +20,7 @@ window.__ModuleLoader__.load({
     /** Row seat in the panel list, after Plugins (0) and Schedules (10). */
     const PANEL_ORDER = 20
     /** Titles and seats for the providers this dashboard is known to carry; anything else renders by key. */
-    const KNOWN = [['opencode_go', 'OpenCode Go'], ['claude', 'Claude'], ['free_pool', 'free-pool']]
+    const KNOWN = [['opencode_go', 'OpenCode Go'], ['claude', 'Claude'], ['antigravity', 'Antigravity'], ['free_pool', 'free-pool']]
     /** How often an open page re-reads while it stays visible. */
     const POLL_MS = 60000
 
