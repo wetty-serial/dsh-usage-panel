@@ -26,6 +26,7 @@ window.__ModuleLoader__.load({
 
     const ja = {
       nav: '使用量',
+      back: '戻る',
       updated: '{time} 時点',
       source: '取得元 {host}',
       reload: '再取得',
@@ -44,6 +45,7 @@ window.__ModuleLoader__.load({
     }
     const en = {
       nav: 'Usage',
+      back: 'Back',
       updated: 'as of {time}',
       source: 'from {host}',
       reload: 'Refresh',
@@ -63,6 +65,7 @@ window.__ModuleLoader__.load({
     const zh = {
       ...en,
       nav: '用量',
+      back: '返回',
       updated: '{time} 时',
       source: '来源 {host}',
       reload: '重新获取',
@@ -93,7 +96,13 @@ window.__ModuleLoader__.load({
       '.up_scroll{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}',
       '.up_body{max-width:960px;margin:0 auto;padding:28px clamp(24px,4vw,48px) 48px;box-sizing:border-box}',
       "html[data-platform='darwin'] .up_body{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}",
-      '.up_title{margin:0 0 20px;font-size:20px;font-weight:500;line-height:28px;color:var(--dsw-alias-label-primary)}',
+      '.up_title{margin:0;font-size:20px;font-weight:500;line-height:28px;color:var(--dsw-alias-label-primary)}',
+      '.up_titleRow{display:flex;align-items:center;gap:4px;margin:0 0 20px}',
+      '.up_back{flex:none;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;',
+      'padding:0;border:0;border-radius:6px;background:none;color:var(--dsw-alias-label-secondary);cursor:pointer;',
+      'transition:background .12s,color .12s}',
+      '.up_back:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}',
+      '.up_back:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
       '.up_page{display:flex;flex-direction:column;gap:14px}',
       '.up_head{display:flex;align-items:center;gap:10px;min-height:26px}',
       '.up_stamp{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;line-height:16px;color:var(--dsw-alias-label-tertiary)}',
@@ -305,13 +314,35 @@ window.__ModuleLoader__.load({
           : null)
     }
 
+    /** The panel the page was opened over; `null` is the Conversation. Re-read while the page is closed. */
+    let previousPanel = null
+
+    /** Leave the page the way it was entered: the panel it covered, or the Conversation. */
+    const leavePanel = () => {
+      try {
+        services.layout.selectPanel(previousPanel ?? null)
+      } catch (_error) {
+        // The panel that was open is gone (uninstalled, or its row removed): fall back to the Conversation.
+        services.layout.selectPanel(null)
+      }
+    }
+
     /** Main-slot occupant: the full page column a global panel renders into. */
     function UsagePanelPage() {
       return h('div', { className: 'up_view' },
         h('style', null, CSS),
         h('div', { className: 'up_scroll' },
           h('div', { className: 'up_body' },
-            h('h1', { className: 'up_title' }, tr('nav')),
+            h('div', { className: 'up_titleRow' },
+              h('button', {
+                type: 'button', className: 'up_back',
+                'aria-label': tr('back'), title: tr('back'), onClick: leavePanel,
+              }, h('svg', {
+                width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none',
+                stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round',
+                'aria-hidden': 'true', focusable: 'false',
+              }, h('path', { d: 'M10 3.5 5.5 8l4.5 4.5' }))),
+              h('h1', { className: 'up_title' }, tr('nav'))),
             h(UsagePage))))
     }
 
@@ -325,11 +356,21 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'locale', 'connection'],
+      inject: ['slots', 'locale', 'connection', 'layout'],
       apply(ctx) {
         services = ctx
         ctx.effect(() => ctx.locale.register(NS, { ja, en, zh }), 'usage-panel: dictionaries')
         bound = ctx.locale.bind(NS)
+        // Watch from the plugin, not the page: the page only exists while it is shown, so a
+        // page-local subscription could never see the panel the user came from.
+        ctx.effect(() => {
+          const read = () => {
+            const active = ctx.layout.panelInfo.getSnapshot().activePanelId
+            if (active !== PANEL_ID) previousPanel = active ?? null
+          }
+          read()
+          return ctx.layout.panelInfo.subscribe(read)
+        }, 'usage-panel: remember the panel it was opened over')
         // One entrance, not two: a global panel with a panel-list row of the same id, so
         // the page opens from the sidebar and is dispatched by the layout as `main`/`usage`.
         ctx.slots.inject('main', () => ctx.slots.register({
