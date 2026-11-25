@@ -1,5 +1,5 @@
 /**
- * Browser half of dsh-usage-panel: the Settings page that lists every provider
+ * Browser half of dsh-usage-panel: the global page that lists every provider
  * the usage dashboard reports, its meters and the times they recover.
  *
  * The page is driven by the payload alone. Provider keys, meter labels and
@@ -15,6 +15,10 @@ window.__ModuleLoader__.load({
     const { useState, useEffect, useCallback } = React
 
     const NS = 'usage-panel'
+    /** Global panel key; the sidebar panel row and the `main` cell share this one id. */
+    const PANEL_ID = 'usage'
+    /** Row seat in the panel list, after Plugins (0) and Schedules (10). */
+    const PANEL_ORDER = 20
     /** Titles and seats for the providers this dashboard is known to carry; anything else renders by key. */
     const KNOWN = [['opencode_go', 'OpenCode Go'], ['claude', 'Claude'], ['free_pool', 'free-pool']]
     /** How often an open page re-reads while it stays visible. */
@@ -84,7 +88,13 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = [
-      '.up_page{display:flex;flex-direction:column;gap:14px;max-width:660px;padding:4px 0 12px}',
+      '.up_view{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;',
+      'background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}',
+      '.up_scroll{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}',
+      '.up_body{max-width:960px;margin:0 auto;padding:28px clamp(24px,4vw,48px) 48px;box-sizing:border-box}',
+      "html[data-platform='darwin'] .up_body{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}",
+      '.up_title{margin:0 0 20px;font-size:20px;font-weight:500;line-height:28px;color:var(--dsw-alias-label-primary)}',
+      '.up_page{display:flex;flex-direction:column;gap:14px}',
       '.up_head{display:flex;align-items:center;gap:10px;min-height:26px}',
       '.up_stamp{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;line-height:16px;color:var(--dsw-alias-label-tertiary)}',
       '.up_btn{flex:none;height:26px;padding:0 10px;border-radius:7px;border:none;font:inherit;font-size:12px;cursor:pointer;',
@@ -117,6 +127,10 @@ window.__ModuleLoader__.load({
     ].join('')
 
     let services
+
+    /** Locale-bound translator, resolved at call time so a language switch needs no re-registration. */
+    let bound
+    const tr = (key, params) => translator(bound)(key, params)
 
     /** Call one endpoint of this plugin's Host channel through the page's own carrier. */
     const call = async (endpoint, payload, signal) => {
@@ -211,8 +225,7 @@ window.__ModuleLoader__.load({
           row.until === undefined ? null : h('span', { className: 'up_muted' }, tr('cooldownUntil', { until: row.until }))))))
     }
 
-    function UsagePage({ t }) {
-      const tr = translator(t)
+    function UsagePage() {
       const [state, setState] = useState({ status: 'loading' })
       const [req, setReq] = useState({ id: 0, force: false })
       const [loading, setLoading] = useState(true)
@@ -233,8 +246,19 @@ window.__ModuleLoader__.load({
       }, [req])
 
       useEffect(() => {
-        const timer = setInterval(() => setReq(previous => ({ id: previous.id + 1, force: false })), POLL_MS)
-        return () => clearInterval(timer)
+        // This page only exists while it is the selected global panel, so mounting reads
+        // once and unmounting stops the poll. A hidden tab skips reads; returning reads once.
+        const read = () => {
+          if (document.visibilityState === 'hidden') return
+          setReq(previous => ({ id: previous.id + 1, force: false }))
+        }
+        const timer = setInterval(read, POLL_MS)
+        const onVisibility = () => { if (document.visibilityState === 'visible') read() }
+        document.addEventListener('visibilitychange', onVisibility)
+        return () => {
+          clearInterval(timer)
+          document.removeEventListener('visibilitychange', onVisibility)
+        }
       }, [])
 
       const reload = useCallback(() => {
@@ -249,7 +273,6 @@ window.__ModuleLoader__.load({
       const stamp = clock(data?.generated_at) ?? clock(value?.at)
 
       return h('div', { className: 'up_page' },
-        h('style', null, CSS),
         h('div', { className: 'up_head' },
           h('div', { className: 'up_stamp' },
             stamp === undefined ? null : h('span', null, tr('updated', { time: stamp })),
@@ -282,16 +305,40 @@ window.__ModuleLoader__.load({
           : null)
     }
 
+    /** Main-slot occupant: the full page column a global panel renders into. */
+    function UsagePanelPage() {
+      return h('div', { className: 'up_view' },
+        h('style', null, CSS),
+        h('div', { className: 'up_scroll' },
+          h('div', { className: 'up_body' },
+            h('h1', { className: 'up_title' }, tr('nav')),
+            h(UsagePage))))
+    }
+
+    /** Panel-list icon: the three bars of icon.svg, at the size the sidebar asks for. */
+    function UsagePanelIcon({ size }) {
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 36 36', fill: 'none',
+        stroke: 'currentColor', strokeWidth: 2.4, strokeLinecap: 'round', strokeLinejoin: 'round',
+        'aria-hidden': 'true', focusable: 'false',
+      }, h('path', { d: 'M8 10.5h20M8 18h13M8 25.5h8' }))
+    }
+
     return {
       inject: ['slots', 'locale', 'connection'],
       apply(ctx) {
         services = ctx
         ctx.effect(() => ctx.locale.register(NS, { ja, en, zh }), 'usage-panel: dictionaries')
-        const bound = ctx.locale.bind(NS)
-        ctx.slots.inject('settings.section', () => ctx.slots.register({
-          name: 'settings.section', id: 'usage-panel', order: 52,
-          label: () => translator(bound)('nav'), locale: NS,
-        }, UsagePage))
+        bound = ctx.locale.bind(NS)
+        // One entrance, not two: a global panel with a panel-list row of the same id, so
+        // the page opens from the sidebar and is dispatched by the layout as `main`/`usage`.
+        ctx.slots.inject('main', () => ctx.slots.register({
+          name: 'main', key: PANEL_ID, locale: NS,
+        }, UsagePanelPage))
+        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+          name: 'sidebar.panellist', id: PANEL_ID, order: PANEL_ORDER, locale: NS,
+          label: () => tr('nav'),
+        }, UsagePanelIcon))
       },
     }
   },
