@@ -404,6 +404,7 @@ window.__ModuleLoader__.load({
       }
 
       return h('div', { className: 'up2_page' },
+        h('style', null, CSS),
         h('h3', { className: 'up2_heading' }, tr('setupHeading')),
         h('p', { className: 'up2_hint' }, tr('setupHint')),
         snapshot.status === 'loading'
