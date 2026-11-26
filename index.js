@@ -15,12 +15,15 @@ export const name = 'usage-panel'
 
 export const Config = z.object({
   /** Dashboard JSON endpoint: provider-usage-dashboard on the same host (nucbox). */
-  url: z.string().default('http://127.0.0.1:18080/api/usage'),
+  url: z.string().default('http://127.0.0.1:18080/api/usage').volatile(),
   /** Upstream read timeout; the dashboard itself refreshes at most once a minute. */
-  timeoutMs: z.number().min(500).default(8000),
+  timeoutMs: z.number().min(500).default(8000).volatile(),
   /** How long one read is reused, so several open pages do not each hit the dashboard. */
-  cacheSeconds: z.number().min(5).default(30),
+  cacheSeconds: z.number().min(5).default(30).volatile(),
 })
+
+/** Current value of a volatile field; plain values are accepted as-is. */
+const read = value => (typeof value?.get === 'function' ? value.get() : value)
 
 const message = (error) => {
   if (error instanceof Error) return error.name === 'TimeoutError' ? 'タイムアウト' : error.message
@@ -28,7 +31,7 @@ const message = (error) => {
 }
 
 export function apply(ctx, config) {
-  const targets = () => [config.url]
+  const targets = () => [read(config.url)]
     .filter(value => typeof value === 'string' && value.trim() !== '')
     .map(value => value.trim())
 
@@ -37,7 +40,7 @@ export function apply(ctx, config) {
     const response = await fetch(target, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
-      signal: AbortSignal.timeout(config.timeoutMs),
+      signal: AbortSignal.timeout(read(config.timeoutMs)),
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const body = await response.json()
@@ -52,7 +55,7 @@ export function apply(ctx, config) {
   let memo = { at: 0, value: undefined }
   const load = async (force) => {
     const now = Date.now()
-    const ttl = (force ? 5 : Math.max(5, config.cacheSeconds)) * 1000
+    const ttl = (force ? 5 : Math.max(5, read(config.cacheSeconds))) * 1000
     if (memo.value !== undefined && now - memo.at < ttl) return memo.value
     const errors = []
     for (const target of targets()) {

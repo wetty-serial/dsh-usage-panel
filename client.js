@@ -12,9 +12,11 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { useState, useEffect, useCallback } = React
+    const { useState, useEffect, useCallback, useSyncExternalStore } = React
 
     const NS = 'usage-panel'
+    /** Settings namespace of the Host row, and the bundle the page belongs to. */
+    const ENTRY = 'usage-panel'
     /** Global panel key; the sidebar panel row and the `main` cell share this one id. */
     const PANEL_ID = 'usage'
     /** Row seat in the panel list, after Plugins (0) and Schedules (10). */
@@ -42,6 +44,16 @@ window.__ModuleLoader__.load({
       statusOk: '取得済み',
       statusOther: '取得できず',
       excluded: '表示外: {list}',
+      setupHeading: '接続',
+      setupHint: 'ダッシュボードの JSON API を読みます。変更はすぐに反映されます。',
+      setupUrl: 'URL',
+      setupTimeout: 'タイムアウト（ミリ秒）',
+      setupCache: 'キャッシュ（秒）',
+      setupInvalid: '値を確認してください',
+      setupLoading: '設定を読み込み中',
+      setupUnavailable: '設定を読み込めません',
+      setupReadonly: 'この設定は上位の設定で固定されているため変更できません',
+      setupSaveFailed: '保存できませんでした',
     }
     const en = {
       nav: 'Usage',
@@ -61,6 +73,16 @@ window.__ModuleLoader__.load({
       statusOk: 'read',
       statusOther: 'not read',
       excluded: 'Hidden: {list}',
+      setupHeading: 'Connection',
+      setupHint: 'Reads the dashboard JSON API. Changes apply at once.',
+      setupUrl: 'URL',
+      setupTimeout: 'Timeout (ms)',
+      setupCache: 'Cache (seconds)',
+      setupInvalid: 'Check the value',
+      setupLoading: 'Loading settings',
+      setupUnavailable: 'Cannot load the settings',
+      setupReadonly: 'A higher-level setting fixes this value',
+      setupSaveFailed: 'Could not save',
     }
     const zh = {
       ...en,
@@ -91,6 +113,18 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = [
+      '.up2_page{display:flex;flex-direction:column;gap:10px;max-width:680px;padding:4px 0 12px}',
+      '.up2_heading{margin:0;font-size:13px;font-weight:600;line-height:1.5;color:var(--dsw-alias-label-primary)}',
+      '.up2_hint{margin:0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}',
+      '.up2_group{display:flex;flex-direction:column;border-radius:12px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}',
+      '.up2_row{display:flex;align-items:center;gap:12px;min-height:44px;padding:6px 14px 6px 16px;box-sizing:border-box}',
+      '.up2_row+.up2_row{border-top:.5px solid var(--dsw-alias-border-l1)}',
+      '.up2_label{flex:none;width:150px;font-size:13px;line-height:18px;color:var(--dsw-alias-label-secondary)}',
+      '.up2_input{flex:1;min-width:0;height:30px;box-sizing:border-box;padding:4px 8px;border:.5px solid var(--dsw-alias-border-l4);border-radius:6px;background:transparent;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}',
+      '.up2_input:disabled{opacity:.6}',
+      '.up2_num{flex:none;width:120px}',
+      '.up2_note{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
+      '.up2_error{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-state-error-primary)}',
       '.up_view{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;',
       'background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}',
       '.up_scroll{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}',
@@ -346,6 +380,65 @@ window.__ModuleLoader__.load({
             h(UsagePage))))
     }
 
+    /**
+     * The bundle page's settings: where the dashboard API lives and how its
+     * reads are bounded. Every field is volatile, so a save applies at once.
+     * @param props - `{ t }` from the slot.
+     */
+    function SetupSection({ t }) {
+      const tr = translator(t)
+      const form = services.configForms.get(ENTRY)
+      const snapshot = useSyncExternalStore(useCallback(listener => form.subscribe(listener), [form]), () => form.getSnapshot())
+      const [failure, setFailure] = useState('')
+
+      const save = (field, next) => {
+        setFailure('')
+        form.mutate([{ op: 'set', path: [field], value: next }]).then(ok => { if (!ok) setFailure(tr('setupSaveFailed')) }, () => setFailure(tr('setupSaveFailed')))
+      }
+
+      const ready = snapshot.status === 'ready' && snapshot.value !== undefined
+      const number = (field, min, next, current) => {
+        if (next === current) return
+        if (!Number.isInteger(next) || next < min) { setFailure(tr('setupInvalid')); return }
+        save(field, next)
+      }
+
+      return h('div', { className: 'up2_page' },
+        h('h3', { className: 'up2_heading' }, tr('setupHeading')),
+        h('p', { className: 'up2_hint' }, tr('setupHint')),
+        snapshot.status === 'loading'
+          ? h('p', { className: 'up2_note', role: 'status' }, tr('setupLoading'))
+          : ready
+            ? h('section', { className: 'up2_group' },
+              h('div', { className: 'up2_row' },
+                h('span', { className: 'up2_label' }, tr('setupUrl')),
+                h('input', {
+                  className: 'up2_input', type: 'text', spellCheck: false,
+                  defaultValue: String(snapshot.value.url ?? ''),
+                  disabled: !snapshot.writable,
+                  onBlur: event => { if (event.target.value !== String(snapshot.value.url ?? '')) save('url', event.target.value) },
+                })),
+              h('div', { className: 'up2_row' },
+                h('span', { className: 'up2_label' }, tr('setupTimeout')),
+                h('input', {
+                  className: 'up2_input up2_num', type: 'number', min: 500, step: 1,
+                  defaultValue: String(snapshot.value.timeoutMs ?? ''),
+                  disabled: !snapshot.writable,
+                  onBlur: event => number('timeoutMs', 500, Number(event.target.value), Number(snapshot.value.timeoutMs ?? '')),
+                })),
+              h('div', { className: 'up2_row' },
+                h('span', { className: 'up2_label' }, tr('setupCache')),
+                h('input', {
+                  className: 'up2_input up2_num', type: 'number', min: 5, step: 1,
+                  defaultValue: String(snapshot.value.cacheSeconds ?? ''),
+                  disabled: !snapshot.writable,
+                  onBlur: event => number('cacheSeconds', 5, Number(event.target.value), Number(snapshot.value.cacheSeconds ?? '')),
+                })),
+              ready && !snapshot.writable ? h('p', { className: 'up2_note' }, tr('setupReadonly')) : null)
+            : h('p', { className: 'up2_note' }, tr('setupUnavailable')),
+        failure === '' ? null : h('p', { className: 'up2_error', role: 'alert' }, failure))
+    }
+
     /** Panel-list icon: the three bars of icon.svg, at the size the sidebar asks for. */
     function UsagePanelIcon({ size }) {
       return h('svg', {
@@ -356,7 +449,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'locale', 'connection', 'layout'],
+      inject: ['slots', 'locale', 'connection', 'layout', 'configForms'],
       apply(ctx) {
         services = ctx
         ctx.effect(() => ctx.locale.register(NS, { ja, en, zh }), 'usage-panel: dictionaries')
@@ -376,6 +469,9 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main', key: PANEL_ID, locale: NS,
         }, UsagePanelPage))
+        ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
+          name: 'plugins.bundle.config', key: 'dsh-usage-panel', locale: NS,
+        }, SetupSection))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist', id: PANEL_ID, order: PANEL_ORDER, locale: NS,
           label: () => tr('nav'),

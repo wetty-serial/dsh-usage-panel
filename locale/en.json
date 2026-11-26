@@ -2,6 +2,6 @@
   "nav": "Usage",
   "meta": {
     "title": "Provider usage",
-    "description": "Lists each provider's usage meters and the times they recover, inside Settings. Read-only: values are shown exactly as the dashboard's JSON API reports them."
+    "description": "Lists each provider's usage meters and the times they recover. Read-only: values are shown exactly as the dashboard's JSON API reports them. The endpoint, timeout and cache are set on the plugin's own page (Plugins › Provider usage)."
   }
 }
