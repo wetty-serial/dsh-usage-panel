@@ -1,6 +1,6 @@
 {
   "name": "dsh-usage-panel",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Global panel that shows provider usage (OpenCode Go / Claude / Antigravity / free-pool) and the times each meter recovers, read from the usage dashboard API",
   "type": "module",
   "main": "index.js",
@@ -58,5 +58,8 @@
     "dsh-plugin",
     "deepseek-harness",
     "usage"
-  ]
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  }
 }

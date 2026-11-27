@@ -22,8 +22,13 @@ export const Config = z.object({
   cacheSeconds: z.number().min(5).default(30).volatile(),
 })
 
-/** Current value of a volatile field; plain values are accepted as-is. */
-const read = value => (typeof value?.get === 'function' ? value.get() : value)
+/**
+ * Current value of a volatile field; plain values are accepted as-is. Named so
+ * it never collides with the async dashboard reader inside `apply`: a shadowed
+ * `read` there made every config lookup call the reader again, overflowing the
+ * stack and taking the whole Host down.
+ */
+const current = value => (typeof value?.get === 'function' ? value.get() : value)
 
 const message = (error) => {
   if (error instanceof Error) return error.name === 'TimeoutError' ? 'タイムアウト' : error.message
@@ -31,7 +36,7 @@ const message = (error) => {
 }
 
 export function apply(ctx, config) {
-  const targets = () => [read(config.url)]
+  const targets = () => [current(config.url)]
     .filter(value => typeof value === 'string' && value.trim() !== '')
     .map(value => value.trim())
 
@@ -40,7 +45,7 @@ export function apply(ctx, config) {
     const response = await fetch(target, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
-      signal: AbortSignal.timeout(read(config.timeoutMs)),
+      signal: AbortSignal.timeout(current(config.timeoutMs)),
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const body = await response.json()
@@ -55,7 +60,7 @@ export function apply(ctx, config) {
   let memo = { at: 0, value: undefined }
   const load = async (force) => {
     const now = Date.now()
-    const ttl = (force ? 5 : Math.max(5, read(config.cacheSeconds))) * 1000
+    const ttl = (force ? 5 : Math.max(5, current(config.cacheSeconds))) * 1000
     if (memo.value !== undefined && now - memo.at < ttl) return memo.value
     const errors = []
     for (const target of targets()) {
